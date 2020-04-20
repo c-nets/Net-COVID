@@ -1,0 +1,45 @@
+extensions [ gis ]
+
+globals [ stations ]
+
+patches-own [
+  random-n
+  centroid
+  ID
+]
+to setup
+
+  clear-all
+  create-turtles 100 [
+  setxy random-xcor random-ycor
+    set size 0.5
+
+  ]
+
+end
+
+
+to setup-maps
+  ;; load the dataset
+  set stations gis:load-dataset "data/LightrailStations.shp"
+  gis:set-world-envelope gis:envelope-of stations
+
+
+;; Loop through the patches and find centroid and set ID
+  let i 1
+  foreach gis:feature-list-of stations [feature ->
+    ask patches gis:intersecting feature [
+    set centroid gis:location-of gis:centroid-of feature
+      ask patch item 0 centroid item 1 centroid [
+        set ID i
+      ]
+    ]
+    set i i + 1
+  ]
+
+ ;; Draw the outline of the counties in white
+
+    gis:set-drawing-color white
+    gis:draw stations 4
+
+end
