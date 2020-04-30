@@ -1,45 +1,185 @@
-extensions [ gis ]
+extensions [ gis nw ]
 
-globals [ stations ]
+globals [ den-stations 
+          den-system
+          nyc-stations
+          nyc-system]
 
 patches-own [
   random-n
   centroid
-  ID
+  id
 ]
+
+
+turtles-own [
+  infected?
+  susceptible?
+  resistant?
+  home-station
+]
+
+
 to setup
 
   clear-all
-  create-turtles 100 [
+  ; create agents and set their initial properties
+  create-turtles 500 [
   setxy random-xcor random-ycor
-    set size 0.5
+    set size 1
+    set color white
+    set infected? false
+  ]
+
+
+    ask patches [ set pcolor black ]
+end
+
+to go
+
+  ask turtles [ move-station
 
   ]
+end
+
+to setup-den
+  ;; load the datasets
+  set den-stations gis:load-dataset "data/DEN/LightrailStations.shp"
+  set den-system gis:load-dataset "data/DEN/LightrailLines_Center.shp"
+
+  ;; set the world envelope to the union of the dataset envelopes, create patch world
+  gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of den-stations)
+                                                (gis:envelope-of den-system))
 
 end
 
 
-to setup-maps
-  ;; load the dataset
-  set stations gis:load-dataset "data/LightrailStations.shp"
-  gis:set-world-envelope gis:envelope-of stations
+to setup-nyc
+  ;; load the datasets
+  set nyc-stations gis:load-dataset "data/NYC/nyc-stations.shp"
+  set nyc-system gis:load-dataset "data/NYC/nyc-lines.shp"
+
+  ;; set the world envelope to the union of the dataset envelopes, create patch world
+  gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of nyc-stations)
+                                                (gis:envelope-of nyc-system))
+
+end
+
+to display-den
+
+  ;; display the public transportation system i.e. bus lines, light rail lines
+  ask patches gis:intersecting den-system
+  [ set pcolor 7 ]
+  
+      ask patches gis:intersecting den-stations
+  [ set pcolor blue]
+
+  ask patch -12 6 [set pcolor red]
+  ask patch -11 3 [set pcolor red]
+
+end
 
 
-;; Loop through the patches and find centroid and set ID
-  let i 1
-  foreach gis:feature-list-of stations [feature ->
-    ask patches gis:intersecting feature [
-    set centroid gis:location-of gis:centroid-of feature
-      ask patch item 0 centroid item 1 centroid [
-        set ID i
-      ]
-    ]
-    set i i + 1
+to display-nyc
+
+  ;; display the public transportation system i.e. bus lines, light rail lines
+  ask patches gis:intersecting nyc-system
+  [ set pcolor 7 ]
+
+    ;;
+    ask patches gis:intersecting nyc-stations
+  [ set pcolor blue]
+  
+    ask patch -21 -5 [set pcolor red]
+    ask patch -25 -6 [set pcolor red]
+    ask patch -22 -9 [set pcolor red]
+    ask patch -22 -15 [set pcolor red]
+    ask patch -11 -6 [set pcolor red]
+    ask patch -17 5 [set pcolor red]
+  
+end
+
+
+to infect-setup
+
+  ask turtles
+  [
+  ;; set up the number of initial infected agents
+  if random 50 = 1 [
+    set infected? true
+    set color red
+
   ]
 
- ;; Draw the outline of the counties in white
+ if random 2 = 1 [
+    set susceptible? true
+    set color yellow
 
-    gis:set-drawing-color white
-    gis:draw stations 4
+  ]
+
+      if random 2 = 1 [
+    set resistant? true
+    set color white
+
+  ]
+  ]
+end
+
+
+
+to move-station
+  ;; move toward the nearest station
+
+
+  facexy ([pxcor] of min-one-of (patches with [pcolor = blue]) [distance myself])
+         ([pycor] of min-one-of (patches with [pcolor = blue]) [distance myself])
+  fd .6
+
+
+end
+
+
+to find-downtown
+  ; once at the station, move towards downtown
+
+  ask turtles
+  [
+ while [[pcolor] of patch-here != red]
+     [
+          
+     facexy ([pxcor] of min-one-of (patches with [pcolor = red]) [distance myself])
+            ([pycor] of min-one-of (patches with [pcolor = red]) [distance myself])
+       
+          fd 0.5       
+     ]
+
+  ]
+
+  
+ 
+end
+
+to commute
+  ask turtles [
+     if [pcolor] of patch-ahead 1 = blue
+      [
+        forward 1
+      ]
+    if [pcolor] of patch-ahead 1 = 7
+      [
+      forward 1
+      ]
+    if [pcolor] of patch-ahead 1 = black
+      [
+     ;set heading one-of patches in-cone 1 180 with [pcolor != black]
+        face min-one-of patches with [ pcolor = 7 ] [ distance myself ]
+         forward 1
+      ]
+        if [pcolor] of patch-here = red
+      [
+       stop
+      ]
+
+  ]
 
 end
